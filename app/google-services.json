@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "524931274171",
+    "project_id": "hhc-groupnavi",
+    "storage_bucket": "hhc-groupnavi.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524931274171:android:1b5f080906b620f1c1209e",
+        "android_client_info": {
+          "package_name": "com.example.hhc_groupnavi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS8kylr2-8BfZk5SKalC9KeDQ_BBVByzM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
