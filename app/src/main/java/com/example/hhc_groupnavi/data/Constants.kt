@@ -4,6 +4,7 @@ import com.example.hhc_groupnavi.R
 
 const val USERS = "users"
 const val GROUPS = "groups"
+const val LOCATIONS = "locations"
 
 // DEFAULTS
 const val DEFAULT_USER_ID = "USER ID"

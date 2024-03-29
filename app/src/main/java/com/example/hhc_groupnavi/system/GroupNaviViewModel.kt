@@ -1,19 +1,34 @@
 package com.example.hhc_groupnavi.system
 
+import android.annotation.SuppressLint
 import android.net.Uri
+import android.os.Looper
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.hhc_groupnavi.data.CarData
 import com.example.hhc_groupnavi.data.Event
 import com.example.hhc_groupnavi.data.GROUPS
 import com.example.hhc_groupnavi.data.GroupData
+import com.example.hhc_groupnavi.data.LOCATIONS
 import com.example.hhc_groupnavi.data.USERS
 import com.example.hhc_groupnavi.data.UserData
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.toObject
 import com.google.firebase.firestore.toObjects
 import com.google.firebase.storage.FirebaseStorage
+import com.google.maps.android.compose.CameraPositionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
@@ -39,6 +54,9 @@ class GroupNaviViewModel @Inject constructor(
     val searchMember = mutableStateOf<UserData?>(null)
     val searchMemberProgress = mutableStateOf(false)
 
+    private val locationListenerRegistration = mutableStateOf<ListenerRegistration?>(null)
+
+
     init {
         val currentUser = auth.currentUser
         signedIn.value = currentUser != null
@@ -46,6 +64,71 @@ class GroupNaviViewModel @Inject constructor(
             getUserData(uid)
         }
     }
+
+    // MAP LOCATION
+    fun uploadUserLocation(
+        userSystemId: String?,
+        currentLocation: LatLng
+    ) {
+        val latitude = currentLocation.latitude
+        val longitude = currentLocation.longitude
+        userSystemId?.let { it ->
+            val locationData = hashMapOf(
+                "latitude" to latitude,
+                "longitude" to longitude,
+            )
+            db.collection(LOCATIONS).document(it).set(locationData)
+                .addOnSuccessListener {
+                    // Success
+                }
+                .addOnFailureListener {
+                    handleException(it, "Cannot Upload User Location")
+                }
+        }
+    }
+
+    fun fetchUserLocation(
+        userSystemId: String?,
+        onLocation: (LatLng?) -> Unit
+    ) {
+        userSystemId?.let {
+            locationListenerRegistration.value = db.collection(LOCATIONS).document(it)
+                .addSnapshotListener { value, error ->
+                    if (error != null) {
+                        handleException(error, "Cannot Fetch User Location")
+                        return@addSnapshotListener
+                    }
+                    val latitude = value?.getDouble("latitude")
+                    val longitude = value?.getDouble("longitude")
+                    if (latitude != null && longitude != null) {
+                        onLocation(LatLng(latitude, longitude))
+                    } else {
+                        onLocation(null)
+                    }
+                }
+        }
+    }
+
+    fun stopFetchUserLocation() {
+        locationListenerRegistration.value?.remove()
+    }
+
+    fun nullifyUserLocation(userSystemId: String?) {
+        userSystemId?.let {
+            val locationData = hashMapOf(
+                "latitude" to null,
+                "longitude" to null,
+            )
+            db.collection(LOCATIONS).document(it).set(locationData)
+                .addOnSuccessListener {
+                    // Success
+                }
+                .addOnFailureListener {
+                    handleException(it, "Cannot Nullify User Location")
+                }
+        }
+    }
+
 
     // EXCEPTION
     private fun handleException(
@@ -570,6 +653,5 @@ class GroupNaviViewModel @Inject constructor(
                 handleException(it, "Cannot Add Member")
             }
     }
-
 
 }
