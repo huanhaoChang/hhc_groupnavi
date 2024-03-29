@@ -82,7 +82,6 @@ fun GroupScreen(
                     WithGroup(
                         navController = navController,
                         vm = vm,
-                        groupSystemId = currentUserData?.groupSystemId,
                     )
                 }
             }
@@ -95,7 +94,6 @@ fun GroupScreen(
 fun WithGroup(
     navController: NavController? = null,
     vm: GroupNaviViewModel? = null,
-    groupSystemId: String? = null,
 ) {
     val currentGroupData = vm?.groupData?.value
     val groupid = currentGroupData?.groupId ?: DEFAULT_GROUP_ID

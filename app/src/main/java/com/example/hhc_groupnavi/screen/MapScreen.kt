@@ -56,7 +56,8 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
 
     val userSystemId = vm?.userData?.value?.systemId
     val userName = vm?.userData?.value?.userName
-    val userImageUrl = vm?.userData?.value?.userImageUrl
+    val userGroup = vm?.groupData?.value
+    val groupMembers = userGroup?.groupMembers
 
     val permissions = arrayOf(
         android.Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -65,7 +66,7 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
 
     // USER LOCATION
     var currentLocation by remember {
-        mutableStateOf(LatLng(0.0, 0.0))
+        mutableStateOf<LatLng?>(null)
     }
     var cameraPositionState by remember {
         mutableStateOf(CameraPositionState())
@@ -74,12 +75,17 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
         mutableStateOf(true)
     }
 
+    // GROUP MEMBERS LOCATION
+    var groupMembersLocation by remember {
+        mutableStateOf<MutableMap<String, LatLng?>>(mutableMapOf())
+    }
+    var visibleMemberLocationMarker by remember {
+        mutableStateOf(false)
+    }
+
     // PASS & RECEIVE LOCATION
     var passLocation by remember {
-        mutableStateOf(LatLng(0.0, 0.0))
-    }
-    var receiveLocation by remember {
-        mutableStateOf(LatLng(0.0, 0.0))
+        mutableStateOf<LatLng?>(null)
     }
     var isPassingActive by remember {
         mutableStateOf(false)
@@ -97,12 +103,12 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
                     currentLocation = LatLng(location.latitude, location.longitude)
                     if (cameraFocusCurrentLocation) {
                         cameraPositionState.move(
-                            CameraUpdateFactory.newLatLngZoom(currentLocation, 15f)
+                            CameraUpdateFactory.newLatLngZoom(currentLocation!!, 15f)
                         )
                     }
                     if (isPassingActive) {
-                        vm?.uploadUserLocation(userSystemId, currentLocation)
-                        passLocation = currentLocation
+                        vm?.uploadUserLocation(userSystemId, currentLocation!!)
+                        passLocation = currentLocation as LatLng
                     }
                 }
             }
@@ -148,20 +154,24 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
         isPassingActive = true
     }
 
-    fun startReceiveLocation() {
-        vm?.fetchUserLocation(userSystemId) { location ->
+    fun startReceiveMembersLocation(memberSystemId: String) {
+        vm?.fetchUserLocation(memberSystemId) { location ->
             location?.let {
-                receiveLocation = LatLng(it.latitude, it.longitude)
+                val memberLocation = LatLng(it.latitude, it.longitude)
+                groupMembersLocation[memberSystemId] = memberLocation
             }
         }
     }
 
-    fun stopPassAndReceive() {
+    fun stopPassLocation() {
         isPassingActive = false
-        vm?.stopFetchUserLocation()
+        passLocation = null
         vm?.nullifyUserLocation(userSystemId)
-        passLocation = LatLng(0.0, 0.0)
-        receiveLocation = LatLng(0.0, 0.0)
+    }
+
+    fun stopReceiveMembersLocation(memberSystemId: String) {
+        vm?.stopFetchUserLocation(memberSystemId)
+        vm?.nullifyUserLocation(memberSystemId)
     }
 
     // LAUNCHERS
@@ -193,26 +203,23 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState
                 ) {
-                    MarkerComposable(
-                        state = MarkerState(
-                            position = currentLocation
-                        ),
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Text(
-                                text = userName ?: "",
-                                fontWeight = FontWeight.Bold
-                            )
-                            UserImageCard(
-                                imageUrl = userImageUrl,
-                                modifier = Modifier.size(40.dp)
+                    currentLocation?.let {
+                        Marker(
+                            state = MarkerState(position = currentLocation!!),
+                            title = "Current Location of $userName",
+                        )
+                    }
+
+                    groupMembers?.forEach { memberSystemId ->
+                        val memberLocation = groupMembersLocation[memberSystemId]
+                        memberLocation?.let {
+                            Marker(
+                                state = MarkerState(position = memberLocation),
+                                title = "Location of Member",
+                                visible = visibleMemberLocationMarker,
                             )
                         }
                     }
-
                 }
 
                 Column(
@@ -222,8 +229,8 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
                 ) {
                     Text(
                         text = "Your Location" +
-                                " ${currentLocation.latitude}, " +
-                                "${currentLocation.longitude}"
+                                " ${currentLocation?.latitude}, " +
+                                "${currentLocation?.longitude}"
                     )
                     Button(
                         onClick = {
@@ -248,8 +255,8 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
                 ) {
                     Text(
                         text = "Passing Number: " +
-                                "${passLocation.latitude}, " +
-                                "${passLocation.longitude}"
+                                "${passLocation?.latitude}, " +
+                                "${passLocation?.longitude}"
                     )
 
                     Button(
@@ -257,29 +264,37 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
                             startPassLocation()
                         }
                     ) {
-                        Text(text = "Pass Location")
-                    }
-
-                    Text(
-                        text = "Receiving Location: " +
-                                "${receiveLocation.latitude}, " +
-                                "${receiveLocation.longitude}"
-                    )
-
-                    Button(
-                        onClick = {
-                            startReceiveLocation()
-                        }
-                    ) {
-                        Text(text = "Receive Location")
+                        Text(text = "Start Pass")
                     }
 
                     Button(
                         onClick = {
-                            stopPassAndReceive()
+                            visibleMemberLocationMarker = true
+                            groupMembers?.forEach { memberSystemId ->
+                                startReceiveMembersLocation(memberSystemId)
+                            }
                         }
                     ) {
-                        Text(text = "Stop Passing Location")
+                        Text(text = "Start Receive")
+                    }
+
+                    Button(
+                        onClick = {
+                            stopPassLocation()
+                        }
+                    ) {
+                        Text(text = "Stop Pass")
+                    }
+
+                    Button(
+                        onClick = {
+                            visibleMemberLocationMarker = false
+                            groupMembers?.forEach { memberSystemId ->
+                                stopReceiveMembersLocation(memberSystemId)
+                            }
+                        }
+                    ) {
+                        Text(text = "Stop Receive")
                     }
                 }
 
@@ -287,15 +302,5 @@ fun MapScreen(navController: NavController? = null, vm: GroupNaviViewModel? = nu
 
         }
         BottomNavigationMenu(navController = navController)
-    }
-}
-
-
-
-@Preview(showBackground = true)
-@Composable
-fun MapScreenPreview() {
-    Hhc_groupnaviTheme {
-        MapScreen()
     }
 }

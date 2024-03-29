@@ -54,7 +54,8 @@ class GroupNaviViewModel @Inject constructor(
     val searchMember = mutableStateOf<UserData?>(null)
     val searchMemberProgress = mutableStateOf(false)
 
-    private val locationListenerRegistration = mutableStateOf<ListenerRegistration?>(null)
+    val membersLocationListenerRegistration =
+        mutableStateOf<MutableMap<String, ListenerRegistration?>>(mutableMapOf())
 
 
     init {
@@ -92,7 +93,7 @@ class GroupNaviViewModel @Inject constructor(
         onLocation: (LatLng?) -> Unit
     ) {
         userSystemId?.let {
-            locationListenerRegistration.value = db.collection(LOCATIONS).document(it)
+            membersLocationListenerRegistration.value[it] = db.collection(LOCATIONS).document(it)
                 .addSnapshotListener { value, error ->
                     if (error != null) {
                         handleException(error, "Cannot Fetch User Location")
@@ -109,8 +110,10 @@ class GroupNaviViewModel @Inject constructor(
         }
     }
 
-    fun stopFetchUserLocation() {
-        locationListenerRegistration.value?.remove()
+    fun stopFetchUserLocation(userSystemId: String?) {
+        userSystemId?.let {
+            membersLocationListenerRegistration.value[it]?.remove()
+        }
     }
 
     fun nullifyUserLocation(userSystemId: String?) {
