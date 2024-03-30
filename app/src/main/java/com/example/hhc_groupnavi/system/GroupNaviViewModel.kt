@@ -140,7 +140,7 @@ class GroupNaviViewModel @Inject constructor(
     ) {
         exception?.printStackTrace()
 
-        val errorMessage = exception?.localizedMessage ?: ""
+        val errorMessage = (":" + exception?.localizedMessage)
 
         val message = if (customMessage.isEmpty()) {
             errorMessage
@@ -221,7 +221,8 @@ class GroupNaviViewModel @Inject constructor(
                 }
             }
             .addOnFailureListener {
-                handleException(customMessage = "Log In Failed")
+                inProgress.value = false
+                handleException( exception = it, customMessage = "Log In Failed")
             }
     }
 
@@ -445,6 +446,7 @@ class GroupNaviViewModel @Inject constructor(
                                     popupNotification.value = Event("Group Created!")
                                 }
                                 .addOnFailureListener { error ->
+                                    inProgress.value = false
                                     handleException(error, "Cannot Create Group")
                                 }
                         }
@@ -466,6 +468,7 @@ class GroupNaviViewModel @Inject constructor(
                                 popupNotification.value = Event("Group Created!")
                             }
                             .addOnFailureListener { error ->
+                                inProgress.value = false
                                 handleException(error, "Cannot Create Group")
                             }
                     }
@@ -474,7 +477,7 @@ class GroupNaviViewModel @Inject constructor(
                 }
             }
             .addOnFailureListener {
-                handleException(it)
+                handleException(it, "Cannot Access Group Info")
             }
     }
 
@@ -600,10 +603,17 @@ class GroupNaviViewModel @Inject constructor(
                             members.addAll(groupmembers)
                         }
                         members.remove(currentusersystemid)
-                        updateGroupData(
-                            groupsystemid = groupsystemid,
-                            groupmembers = members
-                        )
+                        if (members.isEmpty()) {
+                            db.collection(GROUPS).document(groupsystemid).delete()
+                                .addOnFailureListener {
+                                    handleException(it, "Cannot Leave Group")
+                                }
+                        } else {
+                            updateGroupData(
+                                groupsystemid = groupsystemid,
+                                groupmembers = members
+                            )
+                        }
                     }
                     .addOnFailureListener {
                         handleException(it, "Cannot Leave Group")

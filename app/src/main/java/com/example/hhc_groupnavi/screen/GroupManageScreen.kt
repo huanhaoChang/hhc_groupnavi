@@ -63,7 +63,7 @@ fun CreateGroupScreen(
     val focus = LocalFocusManager.current
 
     var groupimageUrlLocal by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf<String?>(null)
     }
     var groupid by rememberSaveable {
         mutableStateOf("")
